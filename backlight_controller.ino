@@ -4,10 +4,14 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <WireGuard-ESP32.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncElegantOTA.h>
 
 #define WIFI_CONNECT_TIMEOUT_S 60
 
 static WireGuard wg;
+AsyncWebServer server(80);
 
 const char* ssid = "HA3BA";
 const char* password = "NKPTRT141d";
@@ -71,6 +75,14 @@ void setup() {
     Serial.print("My WG IP is: ");
     Serial.println(local_ip);
   }
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", "Hi! I am ESP32.");
+  });
+
+  AsyncElegantOTA.begin(&server);
+  server.begin();
+  Serial.println("HTTP server started");
 }
 
 void loop() {
