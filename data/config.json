@@ -1,0 +1,17 @@
+{
+    "ssid": "your_wifi_ssid",
+    "password": "your_wifi_password",
+    "ap_ssid": "access_point_ssid",
+    "ap_password": "access_point_password",
+    "hostname": "your_hostname",
+    "private_key": "your_private_key",
+    "local_ip": "your_local_ip",
+    "public_key": "your_public_key",
+    "ep_addr_ip": "your_ep_addr_ip",
+    "ap_port": 8080,
+    "str_username": "your_string_username",
+    "str_password": "your_string_password",
+    "login_name": "your_login_name",
+    "login_pass": "your_login_password"
+  }
+  
