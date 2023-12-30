@@ -3,14 +3,17 @@
 #include <NTPClient.h>
 #include <WiFi.h>
 #include <SPIFFS.h>
+#include <FS.h>
 #include <WireGuard-ESP32.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncElegantOTA.h>
+#include <ESP8266FtpServer.h>
 
 #define WIFI_CONNECT_TIMEOUT_S 60
 
 static WireGuard wg;
+FtpServer ftpSrv;
 AsyncWebServer server(80);
 
 const char* ssid = "HA3BA";
@@ -83,8 +86,13 @@ void setup() {
   AsyncElegantOTA.begin(&server);
   server.begin();
   Serial.println("HTTP server started");
+
+  if (SPIFFS.begin(true)) { // Format SPIFFS if failed to mount
+      Serial.println("SPIFFS opened!");
+      ftpSrv.begin("ftp_username", "ftp_password");
+  }
 }
 
 void loop() {
-
+  ftpSrv.handleFTP();
 }
