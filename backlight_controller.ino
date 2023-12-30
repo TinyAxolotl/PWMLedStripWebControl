@@ -3,27 +3,34 @@
 #include <NTPClient.h>
 #include <WiFi.h>
 #include <SPIFFS.h>
+#include <WireGuard-ESP32.h>
 
 #define WIFI_CONNECT_TIMEOUT_S 60
 
+static WireGuard wg;
+
 const char* ssid = "HA3BA";
 const char* password = "NKPTRT141d";
-
-uint8_t timeout = 0;
-
 const char* ap_ssid = "PC_backlight";
 const char* ap_password = "19216812Zz";
-
 const String hostname = "PC_backlight";
+
+char private_key[] = "ppk";
+IPAddress local_ip(10, 7, 0, 13);
+char public_key[] = "pk";
+char endpoint_address[] = "ep_ip";
+int endpoint_port = port;
+
+uint8_t timeout = 0;
 
 void(* resetFunc) (void) = 0; // Функция перезагрузки. Присоединить на кнопку.
 
 void tryToStartAP() {
-    printf("Trying to start access point\n");
-    WiFi.softAP(ap_ssid, ap_password);
-    IPAddress IP = WiFi.softAPIP();
-    Serial.print("AP IP address: ");
-    Serial.println(IP);
+  printf("Trying to start access point\n");
+  WiFi.softAP(ap_ssid, ap_password);
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(IP);
 }
 
 void setup() {
@@ -49,10 +56,20 @@ void setup() {
     }
   }
 
-  if(WL_CONNECTED == WiFi.status()) {
+  if (WL_CONNECTED == WiFi.status()) {
     Serial.print("Connected to WiFi network with IP Address: ");
     Serial.println(WiFi.localIP());
-    Serial.printf("RSSI level is: %d\n", WiFi.RSSI()); 
+    Serial.printf("RSSI level is: %d\n", WiFi.RSSI());
+  }
+
+  configTime(9 * 60 * 60, 0, "ntp.jst.mfeed.ad.jp", "ntp.nict.jp", "time.google.com");
+
+  if ( !wg.begin(local_ip, private_key, endpoint_address, public_key, endpoint_port) ) {
+    Serial.println("Failed to initialize WG interface");
+  } else {
+    Serial.println("Successfully connected to WG!");
+    Serial.print("My WG IP is: ");
+    Serial.println(local_ip);
   }
 }
 
