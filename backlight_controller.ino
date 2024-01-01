@@ -32,10 +32,21 @@ int endpoint_port = 8080;
 String ftp_username = "ftp_user";
 String ftp_password = "ftp_pass";
 
+String sliderValue = "0";
+const char* PARAM_INPUT = "value";
+
 uint8_t timeout = 0;
 char *json_data;
 
 void(* resetFunc) (void) = 0; // Функция перезагрузки. Присоединить на кнопку.
+
+String processor(const String& var) {
+  Serial.printf("Processor received string: %s\n", var);
+  if (var == "SLIDERVALUE") {
+    return sliderValue;
+  }
+  return String();
+}
 
 void tryToStartAP() {
   printf("Trying to start access point\n");
@@ -66,7 +77,7 @@ void setup() {
     auto err = deserializeJson(jsonBuffer, json_data);
     if (err) {
       Serial.println("Parse config file failed");
-      while(true);
+      while (true);
     } else {
       ssid = jsonBuffer["ssid"].as<const char*>();
       password = jsonBuffer["password"].as<const char*>();
@@ -112,14 +123,32 @@ void setup() {
 
   /*if ( !wg.begin(local_ip.c_str(), private_key.c_str(), endpoint_address.c_str(), public_key.c_str(), endpoint_port) ) {
     Serial.println("Failed to initialize WG interface");
-  } else {
+    } else {
     Serial.println("Successfully connected to WG!");
     Serial.print("My WG IP is: ");
     Serial.println(local_ip);
-  }*/
+    }*/
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
-    request->send(200, "text/plain", "Hi! I am ESP32.");
+  server.on("/", HTTP_ANY, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/index.html", String(), false, processor);
+  });
+
+  server.on("/initial-slider-value", HTTP_ANY, [](AsyncWebServerRequest * request) {
+    request->send(200, "text/plain", sliderValue);
+  });
+
+  server.on("/slider", HTTP_GET, [] (AsyncWebServerRequest * request) {
+    String inputMessage;
+    if (request->hasParam(PARAM_INPUT)) {
+      inputMessage = request->getParam(PARAM_INPUT)->value();
+      sliderValue = inputMessage;
+      //pwmLedStripWrite(ledChannel, sliderValue.toInt());
+    }
+    else {
+      inputMessage = "No message sent";
+    }
+    Serial.println(inputMessage);
+    request->send(200, "text/plain", "OK");
   });
 
   AsyncElegantOTA.begin(&server);
