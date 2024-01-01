@@ -35,6 +35,11 @@ String ftp_password = "ftp_pass";
 String sliderValue = "0";
 const char* PARAM_INPUT = "value";
 
+const int ledPin = 15;
+const int freq = 15000;
+const int ledChannel = 0;
+const int resolution = 12;
+
 uint8_t timeout = 0;
 char *json_data;
 
@@ -142,7 +147,7 @@ void setup() {
     if (request->hasParam(PARAM_INPUT)) {
       inputMessage = request->getParam(PARAM_INPUT)->value();
       sliderValue = inputMessage;
-      //pwmLedStripWrite(ledChannel, sliderValue.toInt());
+      ledcWrite(ledChannel, sliderValue.toInt());
     }
     else {
       inputMessage = "No message sent";
@@ -156,6 +161,10 @@ void setup() {
   Serial.println("HTTP server started");
   ftpSrv.begin(ftp_username, ftp_password);
   Serial.println("FTP server started!");
+
+  ledcSetup(ledChannel, freq, resolution);
+  ledcAttachPin(ledPin, ledChannel);
+  Serial.println("PWM configuration finished!");
 }
 
 void loop() {
