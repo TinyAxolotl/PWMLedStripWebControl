@@ -1,0 +1,40 @@
+<!DOCTYPE HTML><html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backlight</title>
+  <style>
+    html {font-family: Arial; display: inline-block; text-align: center;}
+    .slider {width: 48rem; height: 45px;}
+  </style>
+</head>
+<body>
+    <h2>Backlight</h2>
+    <div>
+        <p><input type="range" onchange="updateSliderPWM(this)" id="pwmSlider" min="0" max="65535" value="%SLIDERVALUE%" step="1" class="slider"></p>
+        <p><span id="textSliderValue">%SLIDERVALUE%</span></p>
+    </div>
+    <script>
+		window.onload = function () {
+			var xhr = new XMLHttpRequest();
+			xhr.open("GET", "/initial-slider-value", true);
+			xhr.onreadystatechange = function () {
+				if (xhr.readyState == 4 && xhr.status == 200) {
+					var initialValue = xhr.responseText;
+					document.getElementById("pwmSlider").value = initialValue;
+					document.getElementById("textSliderValue").innerHTML = initialValue;
+				}
+			};
+			xhr.send();
+		};
+
+        function updateSliderPWM(element) {
+            var sliderValue = document.getElementById("pwmSlider").value;
+            document.getElementById("textSliderValue").innerHTML = sliderValue;
+            console.log(sliderValue);
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", "/slider?value=" + sliderValue, true);
+            xhr.send();
+        }
+    </script>
+</body>
+</html>
