@@ -10,8 +10,11 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncElegantOTA.h>
 #include <ESP8266FtpServer.h>
+#include <EEPROM.h>
 
+#define EEPROM_SIZE 2
 #define WIFI_CONNECT_TIMEOUT_S 60
+#define SAVE_PWM_VALUE_TIMEOUT_S 300
 
 static WireGuard wg;
 FtpServer ftpSrv;
@@ -41,7 +44,10 @@ const int ledChannel = 0;
 const int resolution = 12;
 
 uint8_t timeout = 0;
+uint16_t ledState = 0;
 char *json_data;
+
+uint64_t timer_value = 0;
 
 void(* resetFunc) (void) = 0; // Функция перезагрузки. Присоединить на кнопку.
 
@@ -165,8 +171,24 @@ void setup() {
   ledcSetup(ledChannel, freq, resolution);
   ledcAttachPin(ledPin, ledChannel);
   Serial.println("PWM configuration finished!");
+  EEPROM.begin(EEPROM_SIZE);
+  ledState = (EEPROM.read(0) << 8) | EEPROM.read(1);
+  sliderValue = String(ledState);
+  Serial.printf("Saved PWM status is: %d\n", ledState);
+  timer_value = millis();
 }
 
 void loop() {
   ftpSrv.handleFTP();
+  if ((millis() - timer_value) > SAVE_PWM_VALUE_TIMEOUT_S * 1000) {
+    Serial.println("Checking PWM status");
+    if (ledState != sliderValue.toInt()) {
+      ledState = sliderValue.toInt();
+      Serial.printf("Going to save PWM %d value to EEPROM!\n", ledState);
+      EEPROM.write(0, highByte(ledState));
+      EEPROM.write(1, lowByte(ledState));
+      EEPROM.commit();
+    }
+    timer_value = millis();
+  }
 }
