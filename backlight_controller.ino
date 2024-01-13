@@ -144,6 +144,10 @@ void setup() {
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
 
+  server.on("/style.css", HTTP_ANY, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/style.css");
+  });
+
   server.on("/initial-slider-value", HTTP_ANY, [](AsyncWebServerRequest * request) {
     request->send(200, "text/plain", sliderValue);
   });
