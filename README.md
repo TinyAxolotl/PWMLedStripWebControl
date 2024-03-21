@@ -42,20 +42,20 @@ The ESP32 Backlight Controller offers a streamlined solution for individuals who
 ```
 
 JSON fields description:
-    ssid - Name of your home Wi-Fi access point;
-    password - Password of your home Wi-Fi access point;
-    ap_ssid - SSID of ESP32 AP in case if connection to home Wi-Fi unsuccessfull;
-    ap_password - Password of ESP32's AP;
-    hostname - ESP32 hostname;
-    private_key - Wireguard private key;
-    local_ip - ESP32's wireguard-local IP;
-    public_key - Wireguard public key;
-    ep_addr_ip - Endpoint IP address (IP your WG-installed machine);
-    ap_port - Endpoint port (WG);
-    ftp_username - FTP username;
-    ftp_password - FTP password;
-    login_name - 
-    login_pass - 
+    ssid - Name of your home Wi-Fi access point;  
+    password - Password of your home Wi-Fi access point;  
+    ap_ssid - SSID of ESP32 AP in case if connection to home Wi-Fi unsuccessfull;  
+    ap_password - Password of ESP32's AP;  
+    hostname - ESP32 hostname;  
+    private_key - Wireguard private key;  
+    local_ip - ESP32's wireguard-local IP;  
+    public_key - Wireguard public key;  
+    ep_addr_ip - Endpoint IP address (IP your WG-installed machine);  
+    ap_port - Endpoint port (WG);  
+    ftp_username - FTP username;  
+    ftp_password - FTP password;  
+    login_name -   
+    login_pass -   
 
 2. Compile and download firmware to your ESP32;
 3. Assemble device;
