@@ -13,7 +13,7 @@
 #include <EEPROM.h>
 
 #define EEPROM_SIZE 2
-#define WIFI_CONNECT_TIMEOUT_S 60
+#define WIFI_CONNECT_TIMEOUT_S 300
 #define SAVE_PWM_VALUE_TIMEOUT_S 300
 
 static WireGuard wg;
