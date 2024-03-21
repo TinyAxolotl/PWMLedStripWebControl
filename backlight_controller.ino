@@ -68,6 +68,9 @@ void tryToStartAP() {
 }
 
 void setup() {
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, LOW);
+
   Serial.begin(115200);
   Serial.printf("Starting backlight controller\n");
 
@@ -172,12 +175,13 @@ void setup() {
   ftpSrv.begin(ftp_username, ftp_password);
   Serial.println("FTP server started!");
 
-  ledcSetup(ledChannel, freq, resolution);
-  ledcAttachPin(ledPin, ledChannel);
   Serial.println("PWM configuration finished!");
   EEPROM.begin(EEPROM_SIZE);
   ledState = (EEPROM.read(0) << 8) | EEPROM.read(1);
   sliderValue = String(ledState);
+
+  ledcSetup(ledChannel, freq, resolution);
+  ledcAttachPin(ledPin, ledChannel);
   ledcWrite(ledChannel, sliderValue.toInt());
   Serial.printf("Saved PWM status is: %d\n", ledState);
   timer_value = millis();
