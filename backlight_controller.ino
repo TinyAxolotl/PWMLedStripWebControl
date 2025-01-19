@@ -5,7 +5,6 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <FS.h>
-#include <WireGuard-ESP32.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncElegantOTA.h>
@@ -16,7 +15,6 @@
 #define WIFI_CONNECT_TIMEOUT_S 300
 #define SAVE_PWM_VALUE_TIMEOUT_S 300
 
-static WireGuard wg;
 FtpServer ftpSrv;
 AsyncWebServer server(80);
 File data;
@@ -98,11 +96,6 @@ void setup() {
       ap_ssid = jsonBuffer["ap_ssid"].as<const char*>();
       ap_password = jsonBuffer["ap_password"].as<const char*>();
       hostname = jsonBuffer["hostname"].as<const char*>();
-      private_key = jsonBuffer["private_key"].as<const char*>();
-      local_ip = jsonBuffer["local_ip"].as<const char*>();
-      public_key = jsonBuffer["public_key"].as<const char*>();
-      endpoint_address = jsonBuffer["ep_addr_ip"].as<const char*>();
-      endpoint_port = jsonBuffer["ap_port"];
       ftp_username = jsonBuffer["ftp_username"].as<const char*>();
       ftp_password = jsonBuffer["ftp_password"].as<const char*>();
     }
@@ -134,14 +127,6 @@ void setup() {
   }
 
   configTime(9 * 60 * 60, 0, "ntp.jst.mfeed.ad.jp", "ntp.nict.jp", "time.google.com");
-
-  /*if ( !wg.begin(local_ip.c_str(), private_key.c_str(), endpoint_address.c_str(), public_key.c_str(), endpoint_port) ) {
-    Serial.println("Failed to initialize WG interface");
-    } else {
-    Serial.println("Successfully connected to WG!");
-    Serial.print("My WG IP is: ");
-    Serial.println(local_ip);
-    }*/
 
   server.on("/", HTTP_ANY, [](AsyncWebServerRequest * request) {
     request->send(SPIFFS, "/index.html", String(), false, processor);
