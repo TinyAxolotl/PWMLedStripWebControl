@@ -165,9 +165,8 @@ void setup() {
   ledState = (EEPROM.read(0) << 8) | EEPROM.read(1);
   sliderValue = String(ledState);
 
-  ledcSetup(ledChannel, freq, resolution);
-  ledcAttachPin(ledPin, ledChannel);
-  ledcWrite(ledChannel, sliderValue.toInt());
+  ledcAttach(ledPin, freq, resolution);
+  ledcWrite(ledPin, sliderValue.toInt());
   Serial.printf("Saved PWM status is: %d\n", ledState);
   timer_value = millis();
 }
