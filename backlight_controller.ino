@@ -7,7 +7,7 @@
 #include <FS.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <AsyncElegantOTA.h>
+#include <ElegantOTA.h>
 #include <ESP8266FtpServer.h>
 #include <EEPROM.h>
 
@@ -154,7 +154,7 @@ void setup() {
     request->send(200, "text/plain", "OK");
   });
 
-  AsyncElegantOTA.begin(&server);
+  ElegantOTA.begin(&server);
   server.begin();
   Serial.println("HTTP server started");
   ftpSrv.begin(ftp_username, ftp_password);
@@ -173,6 +173,7 @@ void setup() {
 
 void loop() {
   ftpSrv.handleFTP();
+  ElegantOTA.loop();
   if ((millis() - timer_value) > SAVE_PWM_VALUE_TIMEOUT_S * 1000) {
     Serial.println("Checking PWM status");
     if (ledState != sliderValue.toInt()) {
