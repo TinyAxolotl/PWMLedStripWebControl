@@ -11,108 +11,112 @@
 #include <ESP8266FtpServer.h>
 #include <EEPROM.h>
 
-#define EEPROM_SIZE 2
-#define WIFI_CONNECT_TIMEOUT_S 300
-#define SAVE_PWM_VALUE_TIMEOUT_S 300
+#include "conf.h"
 
 FtpServer ftpSrv;
 AsyncWebServer server(80);
 File data;
 
-String ssid = "ssid";
-String password = "password";
-String ap_ssid = "ap_ssid";
-String ap_password = "ap_password";
-String hostname = "hostname";
-
-String private_key = "ppk";
-String local_ip = "10.7.0.13";
-String public_key = "pk";
-String endpoint_address = "ep_ip";
-int endpoint_port = 8080;
-String ftp_username = "ftp_user";
-String ftp_password = "ftp_pass";
-
-String sliderValue = "0";
 const char* PARAM_INPUT = "value";
 
-const int ledPin = 15;
-const int freq = 15000;
-const int ledChannel = 0;
-const int resolution = 12;
-
-uint8_t timeout = 0;
+uint32_t sliderValue = 0;
+uint16_t timeout = 0;
 uint16_t ledState = 0;
 char *json_data;
 
 uint64_t timer_value = 0;
 
-void(* resetFunc) (void) = 0; // Функция перезагрузки. Присоединить на кнопку.
+void resetFunc(void) {
+  ESP.restart();
+}
+
+int calculate_duty(int in) {
+  return map(in, SERVER_SLIDER_MIN, SERVER_SLIDER_MAX, 0, pow(2, resolution));
+}
 
 String processor(const String& var) {
-  Serial.printf("Processor received string: %s\n", var);
+  #ifdef ENABLE_DEBUG_PRINT
+    Serial.printf("Processor received string: %s\n", var.c_str());
+  #endif
+
   if (var == "SLIDERVALUE") {
-    return sliderValue;
+    return String(sliderValue);
   }
   return String();
 }
 
 void tryToStartAP() {
-  printf("Trying to start access point\n");
-  WiFi.softAP(ap_ssid.c_str(), ap_password.c_str());
+  #ifdef ENABLE_DEBUG_PRINT
+    Serial.printf("Trying to start access point\n");
+  #endif
+  WiFi.softAP(conf.ap_ssid.c_str(), conf.ap_password.c_str());
   IPAddress IP = WiFi.softAPIP();
-  Serial.print("AP IP address: ");
-  Serial.println(IP);
+  #ifdef ENABLE_DEBUG_PRINT
+    Serial.printf("AP IP address: %s\n", IP.to_string().c_str());
+  #endif
 }
+
+#ifdef ENABLE_DEBUG_PRINT
+void printSPIFFSInfo() {
+  Serial.printf("Total space: %u bytes\n", SPIFFS.totalBytes());
+  Serial.printf("Used space: %u bytes\n", SPIFFS.usedBytes());
+  Serial.printf("Free space: %u bytes\n", SPIFFS.totalBytes() - SPIFFS.usedBytes());
+}
+#endif
 
 void setup() {
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, LOW);
 
   Serial.begin(115200);
-  Serial.printf("Starting backlight controller\n");
+  #ifdef ENABLE_DEBUG_PRINT
+    Serial.printf("Starting backlight controller\n");
+  #endif
 
-  if (SPIFFS.begin(true)) { // Format SPIFFS if failed to mount
-    Serial.println("SPIFFS opened!");
-    data = SPIFFS.open("/config.json");
-    Serial.printf("FILE: %s, size: %d bytes\n", data.name(), data.size());
-    json_data = (char*) calloc(data.size(), sizeof(char*));
-    Serial.println("Config file contents:");
-    for (int i = 0; i < data.size(); i++) {
-      json_data[i] = data.read();
-      Serial.write(json_data[i]);
-    }
+  if (SPIFFS.begin()) {
+    #ifdef ENABLE_DEBUG_PRINT
+      Serial.println("SPIFFS opened");
+      printSPIFFSInfo();
+    #endif
 
-    Serial.println("Applying configs");
-    uint16_t json_buffer_size = data.size() * 0.2 + data.size(); // size * 20% + size
-    DynamicJsonDocument jsonBuffer(json_buffer_size);
-    auto err = deserializeJson(jsonBuffer, json_data);
+    File f = SPIFFS.open("/config.json");
+
+    DynamicJsonDocument jsonBuffer(1024);
+    auto err = deserializeJson(jsonBuffer, f);
+    f.close();
     if (err) {
-      Serial.println("Parse config file failed");
-      while (true);
+      #ifdef ENABLE_DEBUG_PRINT
+        Serial.println("Parse config file failed");
+      #endif
     } else {
-      ssid = jsonBuffer["ssid"].as<const char*>();
-      password = jsonBuffer["password"].as<const char*>();
-      ap_ssid = jsonBuffer["ap_ssid"].as<const char*>();
-      ap_password = jsonBuffer["ap_password"].as<const char*>();
-      hostname = jsonBuffer["hostname"].as<const char*>();
-      ftp_username = jsonBuffer["ftp_username"].as<const char*>();
-      ftp_password = jsonBuffer["ftp_password"].as<const char*>();
+      conf.ssid         = jsonBuffer["ssid"]         | conf.ssid;
+      conf.password     = jsonBuffer["password"]     | conf.password;
+      conf.ap_ssid      = jsonBuffer["ap_ssid"]      | conf.ap_ssid;
+      conf.ap_password  = jsonBuffer["ap_password"]  | conf.ap_password;
+      conf.hostname     = jsonBuffer["hostname"]     | conf.hostname;
+      conf.ftp_username = jsonBuffer["ftp_username"] | conf.ftp_username;
+      conf.ftp_password = jsonBuffer["ftp_password"] | conf.ftp_password;
     }
   }
 
-  Serial.printf("Attempt to connect to wifi\n");
   WiFi.mode(WIFI_STA);
   WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
-  WiFi.setHostname(hostname.c_str());
-  WiFi.begin(ssid.c_str(), password.c_str());
+  WiFi.setHostname(conf.hostname.c_str());
+  WiFi.begin(conf.ssid.c_str(), conf.password.c_str());
 
   while (WL_CONNECTED != WiFi.status()) {
     delay(500);
-    Serial.printf("%d seconds left to enter the AP mode\n", (WIFI_CONNECT_TIMEOUT_S - timeout) / 2);
+
+    #ifdef ENABLE_DEBUG_PRINT
+      Serial.printf("%d seconds left to enter the AP mode\n", (WIFI_CONNECT_TIMEOUT_S - timeout) / 2);
+    #endif
+
     timeout++;
-    if (WIFI_CONNECT_TIMEOUT_S <= timeout) {
-      printf("Unsuccessfull attempt to connect WiFi\n");
+    if (WIFI_CONNECT_TIMEOUT_S <= (timeout * 2)) {
+      #ifdef ENABLE_DEBUG_PRINT
+        Serial.printf("Unsuccessfull attempt to connect WiFi\n");
+      #endif
+
       WiFi.disconnect();
       WiFi.mode(WIFI_AP);
       tryToStartAP();
@@ -120,13 +124,13 @@ void setup() {
     }
   }
 
+  #ifdef ENABLE_DEBUG_PRINT
   if (WL_CONNECTED == WiFi.status()) {
     Serial.print("Connected to WiFi network with IP Address: ");
     Serial.println(WiFi.localIP());
     Serial.printf("RSSI level is: %d\n", WiFi.RSSI());
   }
-
-  configTime(9 * 60 * 60, 0, "ntp.jst.mfeed.ad.jp", "ntp.nict.jp", "time.google.com");
+  #endif
 
   server.on("/", HTTP_ANY, [](AsyncWebServerRequest * request) {
     request->send(SPIFFS, "/index.html", String(), false, processor);
@@ -137,37 +141,43 @@ void setup() {
   });
 
   server.on("/initial-slider-value", HTTP_ANY, [](AsyncWebServerRequest * request) {
-    request->send(200, "text/plain", sliderValue);
+    request->send(200, "text/plain", String(sliderValue));
   });
 
   server.on("/slider", HTTP_GET, [] (AsyncWebServerRequest * request) {
     String inputMessage;
     if (request->hasParam(PARAM_INPUT)) {
       inputMessage = request->getParam(PARAM_INPUT)->value();
-      sliderValue = inputMessage;
-      ledcWrite(ledChannel, sliderValue.toInt());
+      sliderValue = inputMessage.toInt();
+      ledcWrite(ledPin, calculate_duty(sliderValue));
     }
     else {
       inputMessage = "No message sent";
     }
-    Serial.println(inputMessage);
+    request->send(200, "text/plain", "OK");
+  });
+
+  server.on("/reset", HTTP_GET, [] (AsyncWebServerRequest * request) {
+    resetFunc();
     request->send(200, "text/plain", "OK");
   });
 
   ElegantOTA.begin(&server);
   server.begin();
-  Serial.println("HTTP server started");
-  ftpSrv.begin(ftp_username, ftp_password);
-  Serial.println("FTP server started!");
+  ftpSrv.begin(conf.ftp_username.c_str(), conf.ftp_password.c_str());
 
-  Serial.println("PWM configuration finished!");
+  #ifdef ENABLE_DEBUG_PRINT
+    Serial.println("HTTP server started");
+    Serial.println("FTP server started!");
+    Serial.println("PWM configuration finished!");
+  #endif
+
   EEPROM.begin(EEPROM_SIZE);
   ledState = (EEPROM.read(0) << 8) | EEPROM.read(1);
-  sliderValue = String(ledState);
+  sliderValue = ledState;
 
   ledcAttach(ledPin, freq, resolution);
-  ledcWrite(ledPin, sliderValue.toInt());
-  Serial.printf("Saved PWM status is: %d\n", ledState);
+  ledcWrite(ledPin, calculate_duty(sliderValue));
   timer_value = millis();
 }
 
@@ -175,10 +185,8 @@ void loop() {
   ftpSrv.handleFTP();
   ElegantOTA.loop();
   if ((millis() - timer_value) > SAVE_PWM_VALUE_TIMEOUT_S * 1000) {
-    Serial.println("Checking PWM status");
-    if (ledState != sliderValue.toInt()) {
-      ledState = sliderValue.toInt();
-      Serial.printf("Going to save PWM %d value to EEPROM!\n", ledState);
+    if (ledState != sliderValue) {
+      ledState = sliderValue;
       EEPROM.write(0, highByte(ledState));
       EEPROM.write(1, lowByte(ledState));
       EEPROM.commit();
