@@ -11,7 +11,6 @@ The ESP32 Backlight Controller offers a streamlined solution for individuals who
 ### Supported features:
 - FTP-server to load web-page content and .json configuration;
 - Asynchronous web-server provide ability to keep connection from everyone in the same net;
-- WireGuard support;
 - PWM 15 KHz;
 - Save previous state of brightness (Every 300 seconds);
 - OTA firmware update;
@@ -19,7 +18,8 @@ The ESP32 Backlight Controller offers a streamlined solution for individuals who
 
 ## How to install:
 
-0. Prerequesites: ArduinoJson, NTPClient, WireGuard-ESP32, AsyncTCP, ESPAsyncWebServer, AsyncElegantOTA, ESP8266FtpServer;
+0. Required libs: ArduinoJson, NTPClient, WireGuard-ESP32, AsyncTCP, ESPAsyncWebServer, AsyncElegantOTA, ESP8266FtpServer;
+As arduino's libs support is weak, please, find some of prerequisites in the "prerequesites" branch, as during timeflow some of the libs are deprecated, moved or forgotten & did not fixed;
 
 1. Prepare your config.json:
 ```
@@ -46,7 +46,7 @@ JSON fields description:
 2. Compile and download firmware to your ESP32;
 3. Assemble device;
 4. Via Wi-fi your Wi-Fi router interface or via VCP (COM-port in Arduino IDE) check ESP32 Wi-Fi IP addr;
-5. Connect to ESP32 via WinSCP, FileZilla or any other ftp-service, please use FTP port 22,
+5. Connect to ESP32 via WinSCP, FileZilla or any other ftp-service, please use FTP port 21,
    enter your ftp_username and ftp_password. Drop .html, .css, .json files to ESP32;
 6. Enter IP address to browser's address bar from a device in one network with ESP32;
 7. (optional step) It would be better if you could provide DHCP-reservation of ESP32 IP address in your Wi-fi router;
@@ -56,5 +56,17 @@ In case if you need to update firmware, you may use OTA update. Just enter <ESP-
 
 ## Schematic:
 
-TBD
+![schematic diagram](docs/schematic.JPG)
 
+
+X1 - input source, X2 - load. COB let strip or whatever.
+In case if input voltage higher than 12V, please use heatsink on your 7805 as it is linear DC-DC convertor, all not-used power will be converted to heat.
+Resistors values are highly variative.
+R3, R4 should not be too small as it's pull-down resistors and their main goal is to close gates in case of logic level change.
+R1 should be selected together with VT2, to provide enough current/voltage to open/close VT1 gate.
+VT2 itself can be any suitable for 3.3V bipolar transistor, TTL logic gate like NOT, AND, whatever. Just be aware that it should be enough to control powerful VT1 transistor.
+Basically you can use the device without VT2, you just need to find any MOSFET with low Rds and Vgs 2...4V, it would be even better, as IRF740 should work with ~220V load, so its an overkill in this schematic. I just found only IRF740 in my storage couple of years ago :D
+L1 is optional, it's main goal is to supress PWM dimming. It can be used together with a capacitor, or just L1 itself. But it's nominal should be selected based on your led strip and personal preferences. Please, during selection start with some small values or use dimming circuit as in case of sharp power-off L1 will generate current needle and can burn your MOSFET.
+ESP32-Wroover module is used here. But any other ESP32 with suitable WiFi support is OK. You just need to configure your GPIO, PWM, etc. via conf.h file before compilation.
+
+In case if you need to control device with voltage 20V and higher, please select another DC-DC step-down convertor from your Vin to 3.3 V (ESP32 power), also you should select another transistor/transistors or use power control module, solid-state relay, etc., as I'm not sure that Vds of your MOSFET would be enough to handle the higher voltage
