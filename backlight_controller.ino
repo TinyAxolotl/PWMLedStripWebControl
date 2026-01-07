@@ -158,8 +158,9 @@ void setup() {
   });
 
   server.on("/reset", HTTP_GET, [] (AsyncWebServerRequest * request) {
-    resetFunc();
     request->send(200, "text/plain", "OK");
+    delay(20);
+    resetFunc();
   });
 
   ElegantOTA.begin(&server);
