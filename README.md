@@ -18,7 +18,7 @@ The ESP32 Backlight Controller offers a streamlined solution for individuals who
 
 ## How to install:
 
-0. Required libs: ArduinoJson, NTPClient, WireGuard-ESP32, AsyncTCP, ESPAsyncWebServer, AsyncElegantOTA, ESP8266FtpServer;
+0. Required libs: ArduinoJson, WireGuard-ESP32, AsyncTCP, ESPAsyncWebServer, AsyncElegantOTA, ESP8266FtpServer;
 As arduino's libs support is weak, please, find some of prerequisites in the "prerequesites" branch, as during timeflow some of the libs are deprecated, moved or forgotten & did not fixed;
 
 1. Prepare your config.json:
