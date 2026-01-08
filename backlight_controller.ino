@@ -1,11 +1,8 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <Time.h>
-#include <NTPClient.h>
 #include <WiFi.h>
 #include <SPIFFS.h>
-#include <FS.h>
-#include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ElegantOTA.h>
 #include <ESP8266FtpServer.h>
