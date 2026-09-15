@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <ESPAsyncWebServer.h>
+#define ELEGANTOTA_USE_ASYNC_WEBSERVER 1
 #include <ElegantOTA.h>
 #include <ESP8266FtpServer.h>
 #include <EEPROM.h>
@@ -98,7 +99,7 @@ void setup() {
         Serial.println("Failed to open config.json, using default config");
       #endif
     } else {
-      DynamicJsonDocument jsonBuffer(1024);
+      JsonDocument jsonBuffer;
       auto err = deserializeJson(jsonBuffer, f);
       f.close();
       if (err) {
