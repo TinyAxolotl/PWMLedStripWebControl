@@ -38,10 +38,14 @@ JSON fields description:
     ssid - Name of your home Wi-Fi access point;  
     password - Password of your home Wi-Fi access point;  
     ap_ssid - SSID of ESP32 AP in case if connection to home Wi-Fi unsuccessfull;  
-    ap_password - Password of ESP32's AP;  
+    ap_password - Password of ESP32's AP (leave empty for an open AP, otherwise must be at least 8 characters);  
     hostname - ESP32 hostname;  
     ftp_username - FTP username;  
     ftp_password - FTP password;  
+    ota_username - Username for the /update OTA page (leave empty together with ota_password to disable auth - not recommended);  
+    ota_password - Password for the /update OTA page;  
+
+Note: the FTP server is unencrypted (plaintext credentials and data). Only use it on a trusted local network, never expose it to the internet.
 
 2. Compile and download firmware to your ESP32;
 3. Assemble device;

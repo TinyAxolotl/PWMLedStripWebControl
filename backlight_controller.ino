@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
-#include <Time.h>
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <ESPAsyncWebServer.h>
@@ -12,23 +11,22 @@
 
 FtpServer ftpSrv;
 AsyncWebServer server(80);
-File data;
 
 const char* PARAM_INPUT = "value";
 
-uint32_t sliderValue = 0;
+volatile uint32_t sliderValue = 0;
 uint16_t timeout = 0;
-uint16_t ledState = 0;
-char *json_data;
+volatile uint16_t ledState = 0;
 
-uint64_t timer_value = 0;
+unsigned long timer_value = 0;
+unsigned long wifi_reconnect_timer = 0;
 
 void resetFunc(void) {
   ESP.restart();
 }
 
 int calculate_duty(int in) {
-  return map(in, SERVER_SLIDER_MIN, SERVER_SLIDER_MAX, 0, pow(2, resolution));
+  return map(in, SERVER_SLIDER_MIN, SERVER_SLIDER_MAX, 0, (1UL << resolution) - 1);
 }
 
 String processor(const String& var) {
@@ -46,10 +44,27 @@ void tryToStartAP() {
   #ifdef ENABLE_DEBUG_PRINT
     Serial.printf("Trying to start access point\n");
   #endif
-  WiFi.softAP(conf.ap_ssid.c_str(), conf.ap_password.c_str());
+
+  bool useOpenAP = conf.ap_password.length() == 0;
+  if (!useOpenAP && conf.ap_password.length() < 8) {
+    #ifdef ENABLE_DEBUG_PRINT
+      Serial.printf("Password is %u chars long, WiFi requires at least 8\n", conf.ap_password.length());
+    #endif
+    return;
+  }
+
+  bool ok = useOpenAP ? WiFi.softAP(conf.ap_ssid.c_str()) : WiFi.softAP(conf.ap_ssid.c_str(), conf.ap_password.c_str());
+
+  if (!ok) {
+    #ifdef ENABLE_DEBUG_PRINT
+      Serial.printf("WiFi AP failed to start\n");
+    #endif
+    return;
+  }
+
   IPAddress IP = WiFi.softAPIP();
   #ifdef ENABLE_DEBUG_PRINT
-    Serial.printf("AP IP address: %s\n", IP.to_string().c_str());
+    Serial.printf("AP IP address: %s\n", IP.toString().c_str());
   #endif
 }
 
@@ -78,21 +93,29 @@ void setup() {
 
     File f = SPIFFS.open("/config.json");
 
-    DynamicJsonDocument jsonBuffer(1024);
-    auto err = deserializeJson(jsonBuffer, f);
-    f.close();
-    if (err) {
+    if (!f) {
       #ifdef ENABLE_DEBUG_PRINT
-        Serial.println("Parse config file failed");
+        Serial.println("Failed to open config.json, using default config");
       #endif
     } else {
-      conf.ssid         = jsonBuffer["ssid"]         | conf.ssid;
-      conf.password     = jsonBuffer["password"]     | conf.password;
-      conf.ap_ssid      = jsonBuffer["ap_ssid"]      | conf.ap_ssid;
-      conf.ap_password  = jsonBuffer["ap_password"]  | conf.ap_password;
-      conf.hostname     = jsonBuffer["hostname"]     | conf.hostname;
-      conf.ftp_username = jsonBuffer["ftp_username"] | conf.ftp_username;
-      conf.ftp_password = jsonBuffer["ftp_password"] | conf.ftp_password;
+      DynamicJsonDocument jsonBuffer(1024);
+      auto err = deserializeJson(jsonBuffer, f);
+      f.close();
+      if (err) {
+        #ifdef ENABLE_DEBUG_PRINT
+          Serial.println("Parse config file failed");
+        #endif
+      } else {
+        conf.ssid         = jsonBuffer["ssid"]         | conf.ssid;
+        conf.password     = jsonBuffer["password"]     | conf.password;
+        conf.ap_ssid      = jsonBuffer["ap_ssid"]      | conf.ap_ssid;
+        conf.ap_password  = jsonBuffer["ap_password"]  | conf.ap_password;
+        conf.hostname     = jsonBuffer["hostname"]     | conf.hostname;
+        conf.ftp_username = jsonBuffer["ftp_username"] | conf.ftp_username;
+        conf.ftp_password = jsonBuffer["ftp_password"] | conf.ftp_password;
+        conf.ota_username = jsonBuffer["ota_username"] | conf.ota_username;
+        conf.ota_password = jsonBuffer["ota_password"] | conf.ota_password;
+      }
     }
   }
 
@@ -145,7 +168,7 @@ void setup() {
     String inputMessage;
     if (request->hasParam(PARAM_INPUT)) {
       inputMessage = request->getParam(PARAM_INPUT)->value();
-      sliderValue = inputMessage.toInt();
+      sliderValue = constrain(inputMessage.toInt(), SERVER_SLIDER_MIN, SERVER_SLIDER_MAX);
       ledcWrite(ledPin, calculate_duty(sliderValue));
     }
     else {
@@ -154,21 +177,11 @@ void setup() {
     request->send(200, "text/plain", "OK");
   });
 
-  server.on("/reset", HTTP_GET, [] (AsyncWebServerRequest * request) {
+  server.on("/reset", HTTP_POST, [] (AsyncWebServerRequest * request) {
     request->send(200, "text/plain", "OK");
     delay(20);
     resetFunc();
   });
-
-  ElegantOTA.begin(&server);
-  server.begin();
-  ftpSrv.begin(conf.ftp_username.c_str(), conf.ftp_password.c_str());
-
-  #ifdef ENABLE_DEBUG_PRINT
-    Serial.println("HTTP server started");
-    Serial.println("FTP server started!");
-    Serial.println("PWM configuration finished!");
-  #endif
 
   EEPROM.begin(EEPROM_SIZE);
   ledState = (EEPROM.read(0) << 8) | EEPROM.read(1);
@@ -177,6 +190,18 @@ void setup() {
   ledcAttach(ledPin, freq, resolution);
   ledcWrite(ledPin, calculate_duty(sliderValue));
   timer_value = millis();
+
+  ElegantOTA.begin(&server);
+
+  server.begin();
+
+  ftpSrv.begin(conf.ftp_username.c_str(), conf.ftp_password.c_str());
+
+  #ifdef ENABLE_DEBUG_PRINT
+    Serial.println("HTTP server started");
+    Serial.println("FTP server started!");
+    Serial.println("PWM configuration finished!");
+  #endif
 }
 
 void loop() {
@@ -190,5 +215,14 @@ void loop() {
       EEPROM.commit();
     }
     timer_value = millis();
+  }
+
+  if (WiFi.getMode() == WIFI_STA && WiFi.status() != WL_CONNECTED &&
+      (millis() - wifi_reconnect_timer) > WIFI_RECONNECT_INTERVAL_S * 1000) {
+    #ifdef ENABLE_DEBUG_PRINT
+      Serial.println("WiFi disconnected, trying to reconnect");
+    #endif
+    WiFi.reconnect();
+    wifi_reconnect_timer = millis();
   }
 }

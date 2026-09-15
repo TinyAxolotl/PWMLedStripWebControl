@@ -4,6 +4,7 @@
 
 #define EEPROM_SIZE               2
 #define WIFI_CONNECT_TIMEOUT_S    300
+#define WIFI_RECONNECT_INTERVAL_S 30
 #define SAVE_PWM_VALUE_TIMEOUT_S  300
 
 #define SERVER_SLIDER_MIN         0
@@ -22,6 +23,8 @@ struct backlight_conf {
   String hostname     = "hostname";
   String ftp_username = "user";
   String ftp_password = "1111";
+  String ota_username = "";
+  String ota_password = "";
 };
 
 backlight_conf conf;
