@@ -10,8 +10,10 @@
 #define SERVER_SLIDER_MIN         0
 #define SERVER_SLIDER_MAX         4095
 
-const int ledPin      = 15;
-const int freq        = 15000;
+#define CONTROL_TASK_DELAY_MS     200
+
+const int ledPin      = 18;
+const int freq        = 10000;
 const int ledChannel  = 0;
 const int resolution  = 12;
 
@@ -26,5 +28,3 @@ struct backlight_conf {
   String ota_username = "";
   String ota_password = "";
 };
-
-backlight_conf conf;

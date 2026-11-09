@@ -6,28 +6,20 @@
 #define ELEGANTOTA_USE_ASYNC_WEBSERVER 1
 #include <ElegantOTA.h>
 #include <ESP8266FtpServer.h>
-#include <EEPROM.h>
 
-#include "conf.h"
+#include "src/conf.h"
+#include "src/control.h"
 
 FtpServer ftpSrv;
 AsyncWebServer server(80);
 
 const char* PARAM_INPUT = "value";
 
-volatile uint32_t sliderValue = 0;
 uint16_t timeout = 0;
-volatile uint16_t ledState = 0;
-
-unsigned long timer_value = 0;
 unsigned long wifi_reconnect_timer = 0;
 
 void resetFunc(void) {
   ESP.restart();
-}
-
-int calculate_duty(int in) {
-  return map(in, SERVER_SLIDER_MIN, SERVER_SLIDER_MAX, 0, (1UL << resolution) - 1);
 }
 
 String processor(const String& var) {
@@ -36,12 +28,12 @@ String processor(const String& var) {
   #endif
 
   if (var == "SLIDERVALUE") {
-    return String(sliderValue);
+    return String(Control::getBrightness());
   }
   return String();
 }
 
-void tryToStartAP() {
+void tryToStartAP(const backlight_conf& conf) {
   #ifdef ENABLE_DEBUG_PRINT
     Serial.printf("Trying to start access point\n");
   #endif
@@ -78,8 +70,7 @@ void printSPIFFSInfo() {
 #endif
 
 void setup() {
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPin, LOW);
+  backlight_conf conf;
 
   Serial.begin(115200);
   #ifdef ENABLE_DEBUG_PRINT
@@ -140,7 +131,7 @@ void setup() {
 
       WiFi.disconnect();
       WiFi.mode(WIFI_AP);
-      tryToStartAP();
+      tryToStartAP(conf);
       break;
     }
   }
@@ -153,6 +144,8 @@ void setup() {
   }
   #endif
 
+  Control::begin();
+
   server.on("/", HTTP_ANY, [](AsyncWebServerRequest * request) {
     request->send(SPIFFS, "/index.html", String(), false, processor);
   });
@@ -162,15 +155,14 @@ void setup() {
   });
 
   server.on("/initial-slider-value", HTTP_ANY, [](AsyncWebServerRequest * request) {
-    request->send(200, "text/plain", String(sliderValue));
+    request->send(200, "text/plain", String(Control::getBrightness()));
   });
 
   server.on("/slider", HTTP_GET, [] (AsyncWebServerRequest * request) {
     String inputMessage;
     if (request->hasParam(PARAM_INPUT)) {
       inputMessage = request->getParam(PARAM_INPUT)->value();
-      sliderValue = constrain(inputMessage.toInt(), SERVER_SLIDER_MIN, SERVER_SLIDER_MAX);
-      ledcWrite(ledPin, calculate_duty(sliderValue));
+      Control::setBrightness(constrain(inputMessage.toInt(), SERVER_SLIDER_MIN, SERVER_SLIDER_MAX));
     }
     else {
       inputMessage = "No message sent";
@@ -183,14 +175,6 @@ void setup() {
     delay(20);
     resetFunc();
   });
-
-  EEPROM.begin(EEPROM_SIZE);
-  ledState = (EEPROM.read(0) << 8) | EEPROM.read(1);
-  sliderValue = ledState;
-
-  ledcAttach(ledPin, freq, resolution);
-  ledcWrite(ledPin, calculate_duty(sliderValue));
-  timer_value = millis();
 
   ElegantOTA.begin(&server);
 
@@ -208,15 +192,6 @@ void setup() {
 void loop() {
   ftpSrv.handleFTP();
   ElegantOTA.loop();
-  if ((millis() - timer_value) > SAVE_PWM_VALUE_TIMEOUT_S * 1000) {
-    if (ledState != sliderValue) {
-      ledState = sliderValue;
-      EEPROM.write(0, highByte(ledState));
-      EEPROM.write(1, lowByte(ledState));
-      EEPROM.commit();
-    }
-    timer_value = millis();
-  }
 
   if (WiFi.getMode() == WIFI_STA && WiFi.status() != WL_CONNECTED &&
       (millis() - wifi_reconnect_timer) > WIFI_RECONNECT_INTERVAL_S * 1000) {
