@@ -1,4 +1,5 @@
 #pragma once
+#include "conf.h"
 
 namespace Control {
   void begin();

@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <atomic>
 #include <stdint.h>
+
 #include "control.h"
-#include "conf.h"
 #include "settings.h"
 
 namespace Control {
